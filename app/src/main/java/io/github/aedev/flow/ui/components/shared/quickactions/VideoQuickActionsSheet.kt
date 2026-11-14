@@ -363,6 +363,7 @@ private fun feedRows(
     val haptics = LocalHapticFeedback.current
     val isWatched = isWatchedProgress(rememberWatchProgress(video.id))
     val reportAi by viewModel.aiReportEnabled.collectAsStateWithLifecycle()
+    val focusMode by viewModel.focusMode.collectAsStateWithLifecycle()
     return listOfNotNull(
         actionRow("interested", Icons.Outlined.ThumbUp, stringResource(R.string.i_like_this)) {
             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
@@ -373,6 +374,13 @@ private fun feedRows(
             haptics.performHapticFeedback(HapticFeedbackType.Reject)
             viewModel.markNotInterested(video)
             onDismiss()
+        },
+        focusMode?.takeIf { it.restricts }?.let {
+            actionRow("not_in_profile", Icons.Outlined.Block, stringResource(R.string.focus_flag)) {
+                haptics.performHapticFeedback(HapticFeedbackType.Reject)
+                viewModel.flagNotInProfile(video)
+                onDismiss()
+            }
         },
         QuickActionRow("watched") { shape ->
             FlowNavRow(

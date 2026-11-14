@@ -1,6 +1,7 @@
 package io.github.aedev.flow.ui.screens.settings.profiles
 
 import android.net.Uri
+import io.github.aedev.flow.data.focus.ProfileFocus
 import io.github.aedev.flow.data.profile.ProfileAvatar
 import io.github.aedev.flow.data.profile.SlicePart
 
@@ -13,6 +14,7 @@ internal data class ProfileDraft(
     val avatar: ProfileAvatar,
     val photo: Uri? = null,
     val copy: Set<SlicePart> = emptySet(),
+    val focus: ProfileFocus = ProfileFocus(),
 )
 
 internal enum class NameIssue { BLANK, TAKEN }

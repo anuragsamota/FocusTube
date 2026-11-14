@@ -6,6 +6,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.github.aedev.flow.data.focus.FocusPolicy
+import io.github.aedev.flow.data.focus.FocusSession
+import io.github.aedev.flow.data.focus.FocusStore
 import io.github.aedev.flow.data.profile.ActiveProfile
 import io.github.aedev.flow.data.profile.CreateResult
 import io.github.aedev.flow.data.profile.Profile
@@ -50,6 +53,7 @@ internal class ProfilesViewModel
         private val profiles: ProfileRepository,
         private val switcher: ProfileSwitcher,
         linked: LinkedProfiles,
+        private val focusStore: FocusStore,
     ) : ViewModel() {
         val state: StateFlow<ProfileRegistryState?> = profiles.state.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -59,6 +63,15 @@ internal class ProfilesViewModel
                 .map { choices -> choices.local.filter { it.link != null }.mapTo(HashSet()) { it.id } }
                 .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
         val runningId: String = ActiveProfile.get(context).id
+
+        /** Whether the running profile's minimum time holds now, so its focus can't be edited away. */
+        val focusLocked: StateFlow<Boolean> =
+            focusStore.session
+                .map { session -> session.isLocking() }
+                .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+        private fun FocusSession?.isLocking(): Boolean =
+            this != null && modeId == runningId && !FocusPolicy.mayLeave(this, System.currentTimeMillis())
 
         private val _message = MutableStateFlow<ProfilesMessage?>(null)
         val message: StateFlow<ProfilesMessage?> = _message.asStateFlow()
@@ -93,7 +106,7 @@ internal class ProfilesViewModel
             onCreated: () -> Unit,
         ) = work {
             val avatar = draft.avatar.takeUnless { it.kind == ProfileAvatar.PHOTO } ?: ProfileAvatar()
-            when (val result = profiles.create(draft.name, draft.colorKey, avatar, draft.copy)) {
+            when (val result = profiles.create(draft.name, draft.colorKey, avatar, draft.copy, draft.focus)) {
                 CreateResult.LimitReached -> {
                     _message.value = ProfilesMessage.LimitReached
                 }
@@ -116,6 +129,9 @@ internal class ProfilesViewModel
             onSaved: () -> Unit,
         ) = work {
             if (draft.name.trim() != profile.name) profiles.rename(profile.id, draft.name)
+            // A running lock is read fresh: the screen may have been open since before it started.
+            val locked = profile.id == runningId && focusStore.session.first().isLocking()
+            if (draft.focus != profile.focus && !locked) profiles.setFocus(profile.id, draft.focus)
             val photo = draft.photo
             when {
                 photo != null -> {

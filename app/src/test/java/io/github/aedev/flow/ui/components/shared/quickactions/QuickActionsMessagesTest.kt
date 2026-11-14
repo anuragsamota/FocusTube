@@ -84,6 +84,7 @@ class QuickActionsMessagesTest {
             musicVideos = MusicVideoVersions { videoSearch(it) },
             autoDownload = autoDownload,
             aiReporter = mockk(relaxed = true),
+            focus = mockk(relaxed = true),
         )
 
     private fun kotlinx.coroutines.test.TestScope.messagesOf(viewModel: QuickActionsViewModel): List<QuickActionMessage> {

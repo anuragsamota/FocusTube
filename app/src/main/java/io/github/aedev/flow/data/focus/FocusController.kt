@@ -2,6 +2,7 @@ package io.github.aedev.flow.data.focus
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.github.aedev.flow.data.model.Video
 import io.github.aedev.flow.data.profile.ActiveProfile
 import io.github.aedev.flow.data.profile.CreateResult
 import io.github.aedev.flow.data.profile.Profile
@@ -161,6 +162,18 @@ class FocusController
                 )
             return (result as? CreateResult.Created)?.profile?.id
         }
+
+        /** Flags [video] as not belonging in the running profile, which then hides it, and its channel once flagged twice. */
+        suspend fun flag(video: Video): Boolean =
+            mutex.withLock {
+                val profile =
+                    profiles.state
+                        .first()
+                        .profiles
+                        .firstOrNull { it.id == runningId } ?: return false
+                val flagged = FocusFlags.flag(profile.focus, video.id, video.channelId)
+                flagged != profile.focus && profiles.setFocus(runningId, flagged)
+            }
 
         fun consumeRefused() {
             refusal.value = null

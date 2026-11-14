@@ -10,6 +10,9 @@ import io.github.aedev.flow.data.contentfilter.aislist.AiReportResult
 import io.github.aedev.flow.data.engagement.LikedMediaUseCase
 import io.github.aedev.flow.data.engagement.VideoEngagementUseCase
 import io.github.aedev.flow.data.engagement.VideoFeedbackUseCase
+import io.github.aedev.flow.data.focus.FocusController
+import io.github.aedev.flow.data.focus.FocusGate
+import io.github.aedev.flow.data.focus.FocusMode
 import io.github.aedev.flow.data.local.PlaylistRepository
 import io.github.aedev.flow.data.local.entity.DownloadItemStatus
 import io.github.aedev.flow.data.model.Video
@@ -67,7 +70,11 @@ class QuickActionsViewModel
         private val musicVideos: MusicVideoVersions,
         private val autoDownload: AutoDownloadTrigger,
         private val aiReporter: AiChannelReporter,
+        private val focus: FocusController,
     ) : ViewModel() {
+        /** The running profile's focus rules; "Doesn't belong here" shows only for a profile that restricts. */
+        val focusMode: StateFlow<FocusMode?> = FocusGate.mode
+
         val watchLaterIds: StateFlow<Set<String>> =
             playlistRepository
                 .getWatchLaterIdsFlow()
@@ -197,6 +204,15 @@ class QuickActionsViewModel
                 runAction {
                     feedback.markNotInterested(video)
                     emit(R.string.not_interested_toast)
+                }
+            }
+        }
+
+        /** Hides [video] from the running profile, and its channel once two of its videos were flagged. */
+        fun flagNotInProfile(video: Video) {
+            viewModelScope.launch {
+                runAction {
+                    if (focus.flag(video)) emit(R.string.focus_flagged_toast)
                 }
             }
         }

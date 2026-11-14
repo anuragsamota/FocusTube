@@ -32,7 +32,15 @@ object FocusGate {
     fun blocks(video: Video): Boolean = blocks(current.value, channels, video)
 
     /** Whether [mode] filters anything at all, so a feed can skip tagging when it doesn't. */
-    fun filters(mode: FocusMode?): Boolean = mode != null && (!mode.allowsEverything || mode.blockedTags.isNotEmpty() || !mode.allowShorts)
+    fun filters(mode: FocusMode?): Boolean =
+        mode != null &&
+            (
+                !mode.allowsEverything ||
+                    mode.blockedTags.isNotEmpty() ||
+                    !mode.allowShorts ||
+                    mode.hiddenVideos.isNotEmpty() ||
+                    mode.hiddenChannels.isNotEmpty()
+            )
 
     /** The rule behind [blocks], with its inputs spelled out for tests. */
     fun blocks(
@@ -41,6 +49,7 @@ object FocusGate {
         video: Video,
     ): Boolean {
         if (mode == null || !filters(mode)) return false
+        if (video.id in mode.hiddenVideos || video.channelId in mode.hiddenChannels) return true
         val tags =
             FocusTagger.tag(
                 category = video.category,

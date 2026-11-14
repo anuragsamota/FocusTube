@@ -298,10 +298,9 @@ class HomeViewModel
             }
 
             viewModelScope.launch {
-                // A new focus mode changes what belongs in the feed, so it starts over.
+                // New focus rules change what belongs in the feed, so it starts over: the running profile's rules
+                // change when they are edited or a video is flagged. A StateFlow already skips equal rules.
                 FocusGate.mode
-                    .map { it?.id }
-                    .distinctUntilChanged()
                     .drop(1)
                     .collect { reloadFeed() }
             }
