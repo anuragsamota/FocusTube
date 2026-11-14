@@ -52,15 +52,25 @@ fun FocusMode.summary(): String {
     val minutes = dailyMinutes
     val videos = dailyVideos
     return when {
-        minutes != null && videos != null ->
+        minutes != null && videos != null -> {
             stringResource(
                 R.string.focus_limit_both,
                 stringResource(R.string.focus_minutes, minutes),
                 pluralStringResource(R.plurals.focus_videos, videos, videos),
             )
-        minutes != null -> stringResource(R.string.focus_limit_one, stringResource(R.string.focus_minutes, minutes))
-        videos != null -> stringResource(R.string.focus_limit_one, pluralStringResource(R.plurals.focus_videos, videos, videos))
-        else -> stringResource(R.string.focus_no_limit)
+        }
+
+        minutes != null -> {
+            stringResource(R.string.focus_limit_one, stringResource(R.string.focus_minutes, minutes))
+        }
+
+        videos != null -> {
+            stringResource(R.string.focus_limit_one, pluralStringResource(R.plurals.focus_videos, videos, videos))
+        }
+
+        else -> {
+            stringResource(R.string.focus_no_limit)
+        }
     }
 }
 
@@ -79,4 +89,3 @@ fun formatCountdown(ms: Long): String {
     val totalSeconds = (ms + TICK_MS - 1) / TICK_MS
     return "%d:%02d".format(totalSeconds / SECONDS_PER_MINUTE, totalSeconds % SECONDS_PER_MINUTE)
 }
-

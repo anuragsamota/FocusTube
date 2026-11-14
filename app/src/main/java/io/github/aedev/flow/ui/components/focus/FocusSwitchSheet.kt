@@ -134,22 +134,27 @@ private fun LockNotice(
             style = MaterialTheme.typography.bodyLarge,
         )
         when (exitRemainingMs) {
-            null ->
+            null -> {
                 OutlinedButton(onClick = onBeginExit, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.focus_emergency_exit))
                 }
-            0L ->
+            }
+
+            0L -> {
                 Text(
                     stringResource(R.string.focus_emergency_open, current.displayName()),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            else ->
+            }
+
+            else -> {
                 Text(
                     stringResource(R.string.focus_emergency_wait, formatCountdown(exitRemainingMs)),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
         }
     }
 }

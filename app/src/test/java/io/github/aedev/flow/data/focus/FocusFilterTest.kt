@@ -51,10 +51,15 @@ class FocusFilterTest {
 
         val merged = FocusPresets.merge(listOf(custom, editedStudy))
 
-        assertThat(merged.map { it.id }).containsExactly(
-            FocusPresets.STUDY, FocusPresets.WORK, FocusPresets.LEARN, FocusPresets.MUSIC, FocusPresets.EXPLORE,
-            "custom_1",
-        ).inOrder()
+        assertThat(merged.map { it.id })
+            .containsExactly(
+                FocusPresets.STUDY,
+                FocusPresets.WORK,
+                FocusPresets.LEARN,
+                FocusPresets.MUSIC,
+                FocusPresets.EXPLORE,
+                "custom_1",
+            ).inOrder()
         assertThat(merged.first().topics).containsExactly("Physics")
         assertThat(merged.first().builtIn).isTrue()
         assertThat(merged.last().builtIn).isFalse()
