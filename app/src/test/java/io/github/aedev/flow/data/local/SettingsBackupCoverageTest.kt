@@ -26,7 +26,7 @@ class SettingsBackupCoverageTest {
 
     @Test
     fun `every key in the general store is backed up or excluded with a reason`() {
-        val declared = declaredKeyNames("data/local/LocalDataManager.kt", "data/wellbeing/DailyLimitStore.kt")
+        val declared = declaredKeyNames("data/local/LocalDataManager.kt", "data/wellbeing/DailyLimitStore.kt", "data/focus/FocusStore.kt")
         val classified = LocalDataManager.BACKED_UP_NAMES + LocalDataManager.NOT_BACKED_UP.keys
 
         assertThat(declared).isNotEmpty()
