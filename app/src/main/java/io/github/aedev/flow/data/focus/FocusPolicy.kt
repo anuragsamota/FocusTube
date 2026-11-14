@@ -10,6 +10,12 @@ sealed interface SwitchDecision {
     ) : SwitchDecision
 }
 
+/** A switch that went ahead: the new session, and whether it took the emergency exit. */
+data class SwitchOutcome(
+    val session: FocusSession,
+    val emergency: Boolean,
+)
+
 /** Where a leisure mode stands against its daily limits today. */
 sealed interface LimitState {
     /** Still within the limits. Null means that limit isn't set. */
@@ -118,6 +124,31 @@ object FocusPolicy {
     ): Boolean {
         if (session == null || canSwitch(session, now) == SwitchDecision.Allowed) return true
         return exitHoldRemainingMs(session, now) == 0L
+    }
+
+    /**
+     * Whether the launch picker should ask at [now]. A productive session still inside its minimum time carries on
+     * without asking, so closing and reopening the app is no way out of it; anything else asks again.
+     */
+    fun asksAtLaunch(
+        session: FocusSession?,
+        now: Long,
+    ): Boolean = canSwitch(session, now) == SwitchDecision.Allowed
+
+    /**
+     * The session that switching to [target] at [now] leaves behind, or null when the viewer may not leave yet.
+     * [emergency] is true when the lock was still running and only the emergency exit let them out, which the stats
+     * count.
+     */
+    fun switchTo(
+        current: FocusSession?,
+        target: FocusMode,
+        now: Long,
+        commitMinutes: Int = DEFAULT_COMMITMENT_MINUTES,
+    ): SwitchOutcome? {
+        if (!mayLeave(current, now)) return null
+        val emergency = current != null && canSwitch(current, now) != SwitchDecision.Allowed
+        return SwitchOutcome(start(target, now, commitMinutes), emergency)
     }
 
     /** The tally to count on for [today]. As with the daily limit, a clock moved back keeps counting the stored day. */

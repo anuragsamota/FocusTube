@@ -48,6 +48,7 @@ import io.github.aedev.flow.data.model.Video
 import io.github.aedev.flow.data.shorts.queue.ShortsQueueSource
 import io.github.aedev.flow.player.DeepFlowManager
 import io.github.aedev.flow.ui.TabScrollEventBus
+import io.github.aedev.flow.ui.components.focus.FocusTopBarAction
 import io.github.aedev.flow.ui.components.layout.LocalFlowBottomInsets
 import io.github.aedev.flow.ui.components.layout.floatAboveBottomChrome
 import io.github.aedev.flow.ui.components.layout.navigation.FlowTab
@@ -158,7 +159,10 @@ fun HomeScreen(
                         )
                     }
                 },
-                trailingAction = { ProfileTopBarAction(onOpenSettings) },
+                trailingAction = {
+                    FocusTopBarAction()
+                    ProfileTopBarAction(onOpenSettings)
+                },
             )
         },
     ) { padding ->
