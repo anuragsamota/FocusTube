@@ -33,6 +33,11 @@ class FocusTagging
         @Volatile
         private var memory: FocusChannelTags? = null
 
+        /** Reads the channel memory so the feed filter has it before the first feed loads. */
+        suspend fun warmUp() {
+            load()
+        }
+
         /** The tags of [video], using what its channel usually posts when the video says nothing itself. */
         suspend fun tagsOf(video: Video): Set<FocusTag> = tag(video, load())
 
@@ -55,6 +60,7 @@ class FocusTagging
                     channels = channels.learn(video.channelId, own, now)
                 }
                 memory = channels
+                FocusGate.setChannels(channels)
                 context.focusTagStore.edit { it[CHANNELS] = json.encodeToString(FocusChannelTags.serializer(), channels) }
             }
         }
@@ -87,6 +93,7 @@ class FocusTagging
                     }
                 } ?: FocusChannelTags()
             memory = decoded
+            FocusGate.setChannels(decoded)
             return decoded
         }
 

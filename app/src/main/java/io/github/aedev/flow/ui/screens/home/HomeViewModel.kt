@@ -11,6 +11,7 @@ import io.github.aedev.flow.R
 import io.github.aedev.flow.data.engagement.FeedInvalidationBus
 import io.github.aedev.flow.data.feed.FeedPrefetchQueue
 import io.github.aedev.flow.data.feed.FeedPrefetchRequest
+import io.github.aedev.flow.data.focus.FocusGate
 import io.github.aedev.flow.data.focus.FocusTagging
 import io.github.aedev.flow.data.local.CachedHomeVideo
 import io.github.aedev.flow.data.local.HomeFeedCacheFilters
@@ -293,6 +294,15 @@ class HomeViewModel
 
             viewModelScope.launch {
                 FlowNeuroEngine.initialize(context)
+            }
+
+            viewModelScope.launch {
+                // A new focus mode changes what belongs in the feed, so it starts over.
+                FocusGate.mode
+                    .map { it?.id }
+                    .distinctUntilChanged()
+                    .drop(1)
+                    .collect { reloadFeed() }
             }
 
             viewModelScope.launch {
