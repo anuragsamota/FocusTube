@@ -48,6 +48,7 @@ class QuickActionsSubscriptionStateTest {
             musicVideos = mockk(relaxed = true),
             autoDownload = mockk(relaxed = true),
             aiReporter = mockk(relaxed = true),
+            focus = mockk(relaxed = true),
         )
 
     @Test

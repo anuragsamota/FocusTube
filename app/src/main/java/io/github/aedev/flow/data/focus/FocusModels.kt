@@ -84,6 +84,10 @@ data class ProfileFocus(
     val schedule: List<FocusWindow> = emptyList(),
     val dailyMinutes: Int? = null,
     val dailyVideos: Int? = null,
+    /** Videos flagged as not belonging here, newest last; see [FocusFlags]. */
+    val hiddenVideos: List<String> = emptyList(),
+    /** How often a video from each channel was flagged here; a channel is hidden at [FocusFlags.CHANNEL_FLAGS]. */
+    val channelFlags: Map<String, Int> = emptyMap(),
 )
 
 /**
@@ -103,6 +107,8 @@ data class FocusMode(
     val dailyMinutes: Int? = null,
     val dailyVideos: Int? = null,
     val lock: Boolean = kind == FocusKind.PRODUCTIVE,
+    val hiddenVideos: Set<String> = emptySet(),
+    val hiddenChannels: Set<String> = emptySet(),
 ) {
     val isProductive: Boolean get() = kind == FocusKind.PRODUCTIVE
 
@@ -133,6 +139,8 @@ data class FocusMode(
                 dailyMinutes = focus.dailyMinutes?.takeIf { it > 0 },
                 dailyVideos = focus.dailyVideos?.takeIf { it > 0 },
                 lock = focus.lock,
+                hiddenVideos = focus.hiddenVideos.toSet(),
+                hiddenChannels = FocusFlags.hiddenChannels(focus),
             )
     }
 }

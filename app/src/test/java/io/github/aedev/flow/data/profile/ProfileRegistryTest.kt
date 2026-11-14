@@ -113,10 +113,12 @@ class ProfileRegistryTest {
     @Test
     fun `profiles can be added up to the limit`() {
         var next = 0
-        val added = withRegistry(newId = { "p${next++}" }) { registry -> (1..6).map { registry.add("P$it", "", ProfileAvatar()) } }
+        val room = ProfileRegistry.MAX_PROFILES - 1
+        val added = withRegistry(newId = { "p${next++}" }) { registry -> (1..room + 2).map { registry.add("P$it", "", ProfileAvatar()) } }
 
-        assertThat(added.take(4).map { it?.name }).containsExactly("P1", "P2", "P3", "P4").inOrder()
-        assertThat(added.drop(4)).containsExactly(null, null)
+        // Default takes the first place.
+        assertThat(added.take(room).map { it?.name }).containsExactlyElementsIn((1..room).map { "P$it" }).inOrder()
+        assertThat(added.drop(room)).containsExactly(null, null)
         assertThat(withRegistry { it.state.first() }.profiles).hasSize(ProfileRegistry.MAX_PROFILES)
     }
 
@@ -179,7 +181,8 @@ class ProfileRegistryTest {
 
         withRegistry { registry ->
             assertThat(registry.addRestored(listOf(Profile("study", name = "Study there"), Profile("gaming", name = "Gaming")))).isTrue()
-            assertThat(registry.addRestored(listOf(Profile("a1"), Profile("a2"), Profile("a3")))).isFalse()
+            val tooMany = (1..ProfileRegistry.MAX_PROFILES - 2).map { Profile("a$it") }
+            assertThat(registry.addRestored(tooMany)).isFalse()
         }
 
         val profiles = withRegistry { it.state.first() }.profiles

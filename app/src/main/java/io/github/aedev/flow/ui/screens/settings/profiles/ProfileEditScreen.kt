@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.aedev.flow.R
+import io.github.aedev.flow.data.focus.ProfileFocus
 import io.github.aedev.flow.data.profile.Profile
 import io.github.aedev.flow.data.profile.ProfileAvatar
 import io.github.aedev.flow.data.profile.SlicePart
@@ -72,6 +73,8 @@ internal fun ProfileEditScreen(
     var copySettings by rememberSaveable { mutableStateOf(true) }
     var copySubscriptions by rememberSaveable { mutableStateOf(true) }
     var copyRecommendations by rememberSaveable { mutableStateOf(true) }
+    var focus by rememberSaveable(stateSaver = ProfileFocusSaver) { mutableStateOf(ProfileFocus()) }
+    val focusLocked by viewModel.focusLocked.collectAsStateWithLifecycle()
 
     LaunchedEffect(existing, state) {
         if (loaded) return@LaunchedEffect
@@ -80,6 +83,7 @@ internal fun ProfileEditScreen(
             colorKey = existing.colorKey
             kind = existing.avatar.kind
             emoji = existing.avatar.emoji
+            focus = existing.focus
             loaded = true
         } else if (state != null) {
             onBack?.invoke()
@@ -116,7 +120,9 @@ internal fun ProfileEditScreen(
                 SlicePart.RECOMMENDATIONS.takeIf { copyRecommendations },
             )
         }
-    val draft = ProfileDraft(name = name.trim(), colorKey = colorKey, avatar = avatar, photo = pendingPhoto, copy = copy)
+    val draft =
+        ProfileDraft(name = name.trim(), colorKey = colorKey, avatar = avatar, photo = pendingPhoto, copy = copy, focus = focus)
+    val focusEditable = !(focusLocked && profileId == viewModel.runningId)
     val canSave = loaded && issue == null && !busy
     val runningName =
         state
@@ -161,6 +167,10 @@ internal fun ProfileEditScreen(
                     emoji = it
                 },
             )
+        }
+        header("profile_edit.focus", R.string.focus_edit_title)
+        item("profile_edit.focus.editor") {
+            if (loaded) ProfileFocusEditor(focus = focus, onChange = { focus = it }, enabled = focusEditable)
         }
         if (isNew) {
             header("profile_edit.start", R.string.profiles_start_with)
