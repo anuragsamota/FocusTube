@@ -24,8 +24,9 @@ env:
   # be installed as an update. Changing it forces every user to reinstall.
   EXPECTED_SIGNER_SHA256: 4322294ed4caa2d4294140095818080ffe8acc1fbe3cdc76107df45c5286be40
   # Certificate of the nightly key. Every nightly must carry it so each one
-  # installs over the previous nightly without an uninstall.
-  EXPECTED_NIGHTLY_SIGNER_SHA256: e42225b5ab3ac68236e54567ef0c4878afbafcdd3d438fbaba343e2d70425bf0
+  # installs over the previous nightly without an uninstall. A fork signing
+  # with its own key sets the repository variable NIGHTLY_SIGNER_SHA256.
+  EXPECTED_NIGHTLY_SIGNER_SHA256: ${{ vars.NIGHTLY_SIGNER_SHA256 || 'e42225b5ab3ac68236e54567ef0c4878afbafcdd3d438fbaba343e2d70425bf0' }}
 
 # checks, tests, lint and build run on separate runners at the same time, and
 # both publish jobs wait for all four. The CI Gradle properties replace the
@@ -160,6 +161,8 @@ jobs:
     name: Build APK
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    outputs:
+      nightly_signed: ${{ steps.nightly_keystore.outputs.signed }}
 
     steps:
       - name: Checkout code
@@ -214,9 +217,9 @@ jobs:
             echo "signed=true" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event_name }}" = "push" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
             # Main publishes the nightly testers install; a debug-signed build
-            # could not update the previous one.
-            echo "::error::NIGHTLY_KEYSTORE_BASE64 is unavailable on a main push. Refusing to publish a debug-signed nightly."
-            exit 1
+            # could not update the previous one, so it is built but not published.
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::NIGHTLY_KEYSTORE_BASE64 is unavailable. This main build is debug-signed and is not published as the nightly."
           else
             echo "signed=false" >> "$GITHUB_OUTPUT"
             echo "Nightly keystore secret is not available. This run's nightly is debug-signed and is not published."
@@ -454,7 +457,7 @@ jobs:
     needs: [checks, tests, lint, build]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build.outputs.nightly_signed == 'true' }}
     permissions:
       contents: write
     concurrency:
