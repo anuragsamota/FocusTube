@@ -3432,6 +3432,7 @@
     <string name="profiles_switch_refused_car">Disconnect from your car to switch profiles</string>
     <string name="profiles_switch_refused_sync">Wait for sync to finish to switch profiles</string>
     <string name="profiles_switch_refused_backup">Wait for the backup to finish to switch profiles</string>
+    <string name="profiles_switch_refused_focus">This profile is locked until its minimum time is up. Use the emergency exit in the focus switcher to leave early.</string>
     <string-array name="profiles_emoji" translatable="false">
         <item>🎧</item>
         <item>📚</item>
@@ -5100,7 +5101,7 @@
     <string name="focus_mode_music">Music</string>
     <string name="focus_mode_explore">Explore</string>
     <string name="focus_picker_title">What are you here for?</string>
-    <string name="focus_picker_body">You\'ll only see videos that fit the mode you pick.</string>
+    <string name="focus_picker_body">Each profile has its own recommendations and only shows videos that fit it.</string>
     <string name="focus_picker_suggested">Suggested now</string>
     <string name="focus_kind_productive">Stays on for the time you choose</string>
     <string name="focus_minutes">%1$d min</string>
@@ -5112,19 +5113,24 @@
     <string name="focus_limit_one">%1$s a day</string>
     <string name="focus_no_limit">No daily limit</string>
     <string name="focus_commit_title">Stay in %1$s for at least</string>
-    <string name="focus_commit_body">You can\'t switch to another mode until this time is up.</string>
+    <string name="focus_commit_body">You can\'t switch to another profile until this time is up.</string>
     <string name="focus_start">Start</string>
     <string name="focus_back">Back</string>
-    <string name="focus_switch_title">Focus mode</string>
+    <string name="focus_switch_title">Focus profile</string>
     <string name="focus_current">Current</string>
-    <string name="focus_action_description">Focus mode: %1$s</string>
+    <string name="focus_action_description">Focus profile: %1$s</string>
     <string name="focus_locked">%1$s stays on for another %2$s.</string>
     <string name="focus_emergency_exit">Emergency exit</string>
     <string name="focus_emergency_wait">Unlocking in %1$s. Keep this sheet open.</string>
-    <string name="focus_emergency_open">Unlocked. Pick a mode to leave %1$s.</string>
-    <string name="focus_limit_reached_time">You\'ve used today\'s time in %1$s. Pick another mode, or come back tomorrow.</string>
-    <string name="focus_limit_reached_videos">You\'ve watched today\'s videos in %1$s. Pick another mode, or come back tomorrow.</string>
+    <string name="focus_emergency_open">Unlocked. Pick a profile to leave %1$s.</string>
+    <string name="focus_limit_reached_time">You\'ve used today\'s time in %1$s. Pick another profile, or come back tomorrow.</string>
+    <string name="focus_limit_reached_videos">You\'ve watched today\'s videos in %1$s. Pick another profile, or come back tomorrow.</string>
     <string name="focus_spent_today">Used up for today</string>
+    <string name="focus_unrestricted">Everything, no limits</string>
+    <string name="focus_subjects_only">Only %1$s</string>
+    <string name="focus_new_title">New focus profile</string>
+    <string name="focus_new_body">Make as many as you need, such as one Study profile per subject. Each starts with your subscriptions and learns its own recommendations.</string>
+    <string name="focus_new_failed">Couldn\'t make the profile. You may have reached the profile limit.</string>
     <string name="focus_today_title">Today</string>
     <string name="focus_today_line">%1$s: %2$s, %3$s</string>
     <plurals name="focus_today_exits">

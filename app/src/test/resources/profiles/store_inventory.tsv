@@ -18,7 +18,8 @@ prefs_datastore	flow_recap_images	main:data/stats/RecapImageResolver.kt	PROFILE	
 prefs_datastore	video_queue	main:data/video/VideoQueueStore.kt	PROFILE	private	The queue the person left.
 prefs_datastore	music_queue	main:data/local/QueuePersistence.kt	PROFILE	private	The queue the person left.
 prefs_datastore	scrobbling	main:data/scrobble/ScrobbleStore.kt	PROFILE	private	Personal Last.fm and ListenBrainz accounts and pending scrobbles.
-prefs_datastore	focus_tags	main:data/focus/FocusTagging.kt	PROFILE	private	What the profile's channels tend to post, learned from its feed for focus modes.
+prefs_datastore	focus_tags	main:data/focus/FocusTagging.kt	DEVICE	-	What channels tend to post, learned from every profile's feed; a channel is the same channel in each profile.
+prefs_datastore	focus_state	main:data/focus/FocusStore.kt	DEVICE	-	The running focus session and today's count per profile; the lock has to hold across a profile switch.
 prefs_datastore	discord_presence	github:discord/DiscordPreferences.kt	PROFILE	private	A personal Discord link.
 prefs_datastore	sync_identity	main:sync/identity/DeviceIdentity.kt	DEVICE	-	Device id and name.
 prefs_datastore	linked_device	main:sync2/device/DeviceKeys.kt	DEVICE	-	Linked-devices keys, sealed by the Keystore; one roster member per install.

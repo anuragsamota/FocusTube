@@ -1,7 +1,6 @@
 package io.github.aedev.flow.data.focus
 
 import com.google.common.truth.Truth.assertThat
-import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import org.junit.Test
 
@@ -45,33 +44,26 @@ class FocusFilterTest {
     }
 
     @Test
-    fun `presets come back when missing and custom modes are kept after them`() {
-        val editedStudy = study.copy(topics = listOf("Physics"), builtIn = false)
-        val custom = FocusMode(id = "custom_1", name = "Cooking", builtIn = true)
+    fun `a profile with subjects shows only what names one of them`() {
+        val algebra = study.copy(topics = listOf("Linear algebra"))
 
-        val merged = FocusPresets.merge(listOf(custom, editedStudy))
-
-        assertThat(merged.map { it.id })
-            .containsExactly(
-                FocusPresets.STUDY,
-                FocusPresets.WORK,
-                FocusPresets.LEARN,
-                FocusPresets.MUSIC,
-                FocusPresets.EXPLORE,
-                "custom_1",
-            ).inOrder()
-        assertThat(merged.first().topics).containsExactly("Physics")
-        assertThat(merged.first().builtIn).isTrue()
-        assertThat(merged.last().builtIn).isFalse()
+        assertThat(FocusFilter.allows(algebra, setOf(FocusTag.EDUCATION), text = "Linear algebra lecture 4")).isTrue()
+        assertThat(FocusFilter.allows(algebra, setOf(FocusTag.EDUCATION), text = "Algebraic geometry, part 2")).isTrue()
+        assertThat(FocusFilter.allows(algebra, setOf(FocusTag.EDUCATION), text = "Organic chemistry basics")).isFalse()
+        assertThat(FocusFilter.allows(algebra, emptySet(), text = "Linear algebra in 10 minutes")).isTrue()
+        assertThat(algebra.allowsEverything).isFalse()
     }
 
     @Test
-    fun `modes survive a round trip through JSON`() {
-        val serializer = ListSerializer(FocusMode.serializer())
+    fun `a profile's focus survives the registry's JSON, and an older registry reads as unrestricted`() {
         val json = Json { ignoreUnknownKeys = true }
+        val study = FocusPresets.template(FocusPresets.STUDY).copy(subjects = listOf("Physics"))
 
-        val decoded = json.decodeFromString(serializer, json.encodeToString(serializer, FocusPresets.all))
+        val decoded = json.decodeFromString(ProfileFocus.serializer(), json.encodeToString(ProfileFocus.serializer(), study))
 
-        assertThat(decoded).isEqualTo(FocusPresets.all)
+        assertThat(decoded).isEqualTo(study)
+        val old = json.decodeFromString(ProfileFocus.serializer(), "{}")
+        assertThat(FocusMode.of("p", "Default", old).restricts).isFalse()
+        assertThat(FocusMode.of("p", "Study", study).lock).isTrue()
     }
 }

@@ -6,8 +6,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * The focus mode every feed filters by, read synchronously where feeds are assembled. [FocusController] sets the mode
- * and [FocusTagging] the channel memory; [io.github.aedev.flow.data.recommendation.FeedExclusions] asks [blocks].
+ * The running profile's focus, which every feed filters by, read synchronously where feeds are assembled.
+ * [FocusController] sets it from the profile registry and [FocusTagging] the channel memory; [io.github.aedev.flow.data.recommendation.FeedExclusions] asks [blocks].
  *
  * A process-wide object because the feeds that need it are built far from Hilt, inside FlowNeuro's snapshot.
  */
@@ -17,7 +17,7 @@ object FocusGate {
     @Volatile
     private var channels: FocusChannelTags = FocusChannelTags()
 
-    /** The mode feeds filter by; null before one is chosen, which filters nothing. */
+    /** The rules feeds filter by; null until the registry has been read, which filters nothing. */
     val mode: StateFlow<FocusMode?> = current.asStateFlow()
 
     fun setMode(mode: FocusMode?) {
@@ -49,6 +49,7 @@ object FocusGate {
                 channelTags = channels.tagsOf(video.channelId),
                 isMusic = video.isMusic,
             )
-        return !FocusFilter.allows(mode, tags, isShort = video.isShort)
+        val text = (listOf(video.title) + video.tags).joinToString(" ")
+        return !FocusFilter.allows(mode, tags, isShort = video.isShort, text = text)
     }
 }

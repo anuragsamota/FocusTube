@@ -11,7 +11,7 @@ class FocusPolicyTest {
     private val music = FocusPresets.all.first { it.id == FocusPresets.MUSIC }
 
     @Test
-    fun `the picker suggests the mode scheduled for now, else Explore`() {
+    fun `the picker suggests the profile scheduled for now, else an open one`() {
         val modes = FocusPresets.all
 
         assertThat(FocusPolicy.suggest(modes, isoDay = 2, minuteOfDay = 10 * 60)?.id).isEqualTo(FocusPresets.WORK)
@@ -122,13 +122,18 @@ class FocusPolicyTest {
     }
 
     @Test
-    fun `launch asks again unless a locked session is still running`() {
+    fun `launch asks again unless a locked session or one just chosen carries on in this profile`() {
         val locked = FocusPolicy.start(study, now, commitMinutes = 30)
+        val chosen = FocusPolicy.start(explore, now)
 
-        assertThat(FocusPolicy.asksAtLaunch(null, now)).isTrue()
-        assertThat(FocusPolicy.asksAtLaunch(locked, now + 10 * minute)).isFalse()
-        assertThat(FocusPolicy.asksAtLaunch(locked, now + 30 * minute)).isTrue()
-        assertThat(FocusPolicy.asksAtLaunch(FocusPolicy.start(explore, now), now)).isTrue()
+        assertThat(FocusPolicy.asksAtLaunch(null, study.id, now)).isTrue()
+        assertThat(FocusPolicy.asksAtLaunch(locked, study.id, now + 10 * minute)).isFalse()
+        assertThat(FocusPolicy.asksAtLaunch(locked, study.id, now + 30 * minute)).isTrue()
+        // Chosen at the picker, then the app restarted into it: the question was answered.
+        assertThat(FocusPolicy.asksAtLaunch(chosen, explore.id, now + minute)).isFalse()
+        assertThat(FocusPolicy.asksAtLaunch(chosen, explore.id, now + 3 * minute)).isTrue()
+        // A session belongs to its profile; another profile asks.
+        assertThat(FocusPolicy.asksAtLaunch(locked, explore.id, now + minute)).isTrue()
     }
 
     @Test

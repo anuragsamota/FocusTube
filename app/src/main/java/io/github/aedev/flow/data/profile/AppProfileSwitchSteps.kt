@@ -7,6 +7,8 @@ import android.os.SystemClock
 import android.window.SplashScreen
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.aedev.flow.data.backup.BackupCoordinator
+import io.github.aedev.flow.data.focus.FocusPolicy
+import io.github.aedev.flow.data.focus.FocusStore
 import io.github.aedev.flow.data.recommendation.FlowNeuroEngine
 import io.github.aedev.flow.data.recommendation.music.MusicBrainEngine
 import io.github.aedev.flow.data.scrobble.Scrobbler
@@ -43,8 +45,14 @@ class AppProfileSwitchSteps
         private val backups: dagger.Lazy<BackupCoordinator>,
         private val discord: DiscordPresenceController,
         private val slices: dagger.Lazy<ProfileSlices>,
+        private val focus: FocusStore,
     ) : ProfileSwitchSteps {
         private val registry: ProfileRegistry get() = ActiveProfile.registry(context)
+
+        private suspend fun focusLocked(): Boolean {
+            val session = focus.session.first() ?: return false
+            return session.modeId == ActiveProfile.get(context).id && !FocusPolicy.mayLeave(session, System.currentTimeMillis())
+        }
 
         override suspend fun refusal(target: String): SwitchRefusal? =
             when {
@@ -57,6 +65,9 @@ class AppProfileSwitchSteps
                 sync.get().isBusy || linked.get().syncing.value -> SwitchRefusal.SYNC_RUNNING
 
                 backups.get().isRunning -> SwitchRefusal.BACKUP_RUNNING
+
+                // A study or work profile holds the viewer until its minimum time is up or the emergency exit opens.
+                focusLocked() -> SwitchRefusal.FOCUS_LOCKED
 
                 registry.state
                     .first()

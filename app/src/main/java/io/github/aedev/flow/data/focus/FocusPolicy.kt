@@ -49,8 +49,8 @@ object FocusPolicy {
     fun validCommitment(minutes: Int): Int = minutes.coerceIn(MIN_COMMITMENT_MINUTES, MAX_COMMITMENT_MINUTES)
 
     /**
-     * The mode the launch picker pre-selects at [isoDay] (1 is Monday) and [minuteOfDay]: the first whose schedule
-     * covers that moment, else Explore, else the first mode.
+     * The profile the launch picker pre-selects at [isoDay] (1 is Monday) and [minuteOfDay]: the first whose schedule
+     * covers that moment, else the first that restricts nothing, else the first open one with no lock, else the first.
      */
     fun suggest(
         modes: List<FocusMode>,
@@ -58,7 +58,8 @@ object FocusPolicy {
         minuteOfDay: Int,
     ): FocusMode? =
         modes.firstOrNull { mode -> mode.schedule.any { covers(it, isoDay, minuteOfDay) } }
-            ?: modes.firstOrNull { it.id == FocusPresets.EXPLORE }
+            ?: modes.firstOrNull { !it.restricts }
+            ?: modes.firstOrNull { it.allowsEverything && !it.lock }
             ?: modes.firstOrNull()
 
     /** Whether [window] covers [minuteOfDay] on [isoDay]. A window past midnight belongs to the day it starts on. */
@@ -75,13 +76,13 @@ object FocusPolicy {
         return (isoDay in window.days && minuteOfDay >= start) || (previousDay in window.days && minuteOfDay < end)
     }
 
-    /** A new session in [mode] from [now]. Only a productive mode takes [commitMinutes]; a leisure mode has none. */
+    /** A new session in [mode] from [now]. Only a mode with a lock takes [commitMinutes]; any other has none. */
     fun start(
         mode: FocusMode,
         now: Long,
         commitMinutes: Int = DEFAULT_COMMITMENT_MINUTES,
     ): FocusSession {
-        val lockMs = if (mode.isProductive) validCommitment(commitMinutes) * MILLIS_PER_MINUTE else 0L
+        val lockMs = if (mode.lock) validCommitment(commitMinutes) * MILLIS_PER_MINUTE else 0L
         return FocusSession(modeId = mode.id, startedAt = now, committedUntil = now + lockMs)
     }
 
@@ -127,13 +128,23 @@ object FocusPolicy {
     }
 
     /**
-     * Whether the launch picker should ask at [now]. A productive session still inside its minimum time carries on
-     * without asking, so closing and reopening the app is no way out of it; anything else asks again.
+     * Whether the launch picker should ask at [now] in the profile [runningId]. A locked session still inside its
+     * minimum time carries on without asking, so closing and reopening the app is no way out of it. A session the
+     * viewer just started in this profile carries on too: choosing another profile restarts the app into it, and the
+     * question was already answered. Anything else asks again.
      */
     fun asksAtLaunch(
         session: FocusSession?,
+        runningId: String,
         now: Long,
-    ): Boolean = canSwitch(session, now) == SwitchDecision.Allowed
+    ): Boolean {
+        if (session == null || session.modeId != runningId) return true
+        if (canSwitch(session, now) != SwitchDecision.Allowed) return false
+        return now - session.startedAt !in 0L until FRESH_SESSION_MS
+    }
+
+    /** How long a session chosen at the picker counts as this launch's answer, across the restart into it. */
+    const val FRESH_SESSION_MS = 2 * 60_000L
 
     /**
      * The session that switching to [target] at [now] leaves behind, or null when the viewer may not leave yet.
@@ -175,14 +186,14 @@ object FocusPolicy {
     fun addEmergencyExit(tally: FocusDayTally): FocusDayTally = tally.copy(emergencyExits = tally.emergencyExits + 1)
 
     /**
-     * Where [mode] stands against its daily limits in [tally]. A productive mode is always within: its limit is the
+     * Where [mode] stands against its daily limits in [tally]. A mode with a lock is always within: its limit is the
      * lock, not an allowance. Time is checked before the video count.
      */
     fun limitState(
         mode: FocusMode,
         tally: FocusDayTally,
     ): LimitState {
-        if (mode.isProductive) return LimitState.Within(remainingMs = null, remainingVideos = null)
+        if (mode.lock) return LimitState.Within(remainingMs = null, remainingVideos = null)
         val remainingMs =
             mode.dailyMinutes?.let { minutes ->
                 (minutes * MILLIS_PER_MINUTE - (tally.playedMs[mode.id] ?: 0L)).coerceAtLeast(0L)

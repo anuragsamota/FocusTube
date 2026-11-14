@@ -218,6 +218,7 @@ internal fun FlowRoot(
                                 FocusPickerScreen(
                                     state = pickerState,
                                     onChoose = { modeId, minutes -> focus.choose(modeId, minutes) },
+                                    onCreate = { preset, name, onCreated -> focus.create(preset, name, onCreated) },
                                 )
                             }
                             if (showLock) AppLockScreen(appLock)

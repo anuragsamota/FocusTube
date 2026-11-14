@@ -21,9 +21,12 @@ import kotlinx.coroutines.delay
 private const val TICK_MS = 1_000L
 private const val SECONDS_PER_MINUTE = 60L
 
-/** The Material symbol for a mode's icon key. */
-fun FocusMode.iconVector(): ImageVector =
-    when (icon) {
+/** The Material symbol for a profile's template. */
+fun FocusMode.iconVector(): ImageVector = presetIcon(icon)
+
+/** The Material symbol for the template [preset]. */
+fun presetIcon(preset: String): ImageVector =
+    when (preset) {
         FocusIcons.STUDY -> Icons.Outlined.School
         FocusIcons.WORK -> Icons.Outlined.WorkOutline
         FocusIcons.LEARN -> Icons.Outlined.Lightbulb
@@ -31,24 +34,44 @@ fun FocusMode.iconVector(): ImageVector =
         else -> Icons.Outlined.Explore
     }
 
-/** A preset keeps its translated name until the viewer renames it; a custom mode shows the name it was given. */
+/** The profile's name; Default's is blank until it is renamed and shows the localized "Default". */
 @Composable
-fun FocusMode.displayName(): String {
-    val preset = FocusPresets.all.firstOrNull { it.id == id }
-    if (preset == null || name != preset.name) return name
-    return when (id) {
+fun FocusMode.displayName(): String = name.ifBlank { stringResource(R.string.profile_default_name) }
+
+/** The name a new profile made from the template [preset] starts with. */
+@Composable
+fun presetName(preset: String): String =
+    when (preset) {
         FocusPresets.STUDY -> stringResource(R.string.focus_mode_study)
         FocusPresets.WORK -> stringResource(R.string.focus_mode_work)
         FocusPresets.LEARN -> stringResource(R.string.focus_mode_learn)
         FocusPresets.MUSIC -> stringResource(R.string.focus_mode_music)
         else -> stringResource(R.string.focus_mode_explore)
     }
+
+/** The avatar a profile made from a template starts with; it can be changed like any profile's. */
+data class FocusPresetLook(
+    val emoji: String,
+    val colorKey: String,
+)
+
+object FocusPresetLooks {
+    fun of(preset: String): FocusPresetLook =
+        when (preset) {
+            FocusPresets.STUDY -> FocusPresetLook("\uD83D\uDCDA", "blue")
+            FocusPresets.WORK -> FocusPresetLook("\uD83D\uDCBC", "teal")
+            FocusPresets.LEARN -> FocusPresetLook("\uD83D\uDCA1", "amber")
+            FocusPresets.MUSIC -> FocusPresetLook("\uD83C\uDFB5", "purple")
+            else -> FocusPresetLook("\uD83E\uDDED", "orange")
+        }
 }
 
-/** One line under a mode: how a productive mode holds you, or a leisure mode's daily limits. */
+/** One line under a profile: its subjects, how a locked profile holds you, or its daily limits. */
 @Composable
 fun FocusMode.summary(): String {
-    if (isProductive) return stringResource(R.string.focus_kind_productive)
+    if (!restricts) return stringResource(R.string.focus_unrestricted)
+    if (topics.isNotEmpty()) return stringResource(R.string.focus_subjects_only, topics.joinToString(", "))
+    if (lock) return stringResource(R.string.focus_kind_productive)
     val minutes = dailyMinutes
     val videos = dailyVideos
     return when {
