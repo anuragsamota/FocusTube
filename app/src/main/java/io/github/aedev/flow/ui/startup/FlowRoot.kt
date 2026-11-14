@@ -213,9 +213,10 @@ internal fun FlowRoot(
                                     },
                                 )
                             }
-                            if (showFocusPicker) {
+                            val pickerState = focusState
+                            if (showFocusPicker && pickerState != null) {
                                 FocusPickerScreen(
-                                    modes = focusState?.modes.orEmpty(),
+                                    state = pickerState,
                                     onChoose = { modeId, minutes -> focus.choose(modeId, minutes) },
                                 )
                             }

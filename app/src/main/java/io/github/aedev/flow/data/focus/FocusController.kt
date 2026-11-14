@@ -41,6 +41,11 @@ class FocusController
         /** Null until the stored session has been read, then whether the picker still has to ask this launch. */
         val needsPicker: StateFlow<Boolean?> = pickerState.asStateFlow()
 
+        private val limitNotice = MutableStateFlow<FocusLimitNotice?>(null)
+
+        /** The leisure mode whose daily allowance just ran out, for the picker to say so; null otherwise. */
+        val limitReached: StateFlow<FocusLimitNotice?> = limitNotice.asStateFlow()
+
         init {
             // Every feed filters by the mode in force, so it follows the stored session from the first launch on.
             scope.launch {
@@ -61,7 +66,7 @@ class FocusController
 
         /**
          * Starts [modeId], from the picker or the switcher. Returns false when the current mode's minimum time still
-         * holds and the emergency exit hasn't opened.
+         * holds and the emergency exit hasn't opened, or when [modeId] is a leisure mode with nothing left today.
          */
         suspend fun choose(
             modeId: String,
@@ -70,6 +75,7 @@ class FocusController
         ): Boolean =
             mutex.withLock {
                 val mode = store.modes.first().firstOrNull { it.id == modeId } ?: return false
+                if (!FocusPolicy.mayStartVideo(mode, todayTally(now))) return false
                 val current = store.session.first()
                 if (current?.modeId == modeId && !FocusPolicy.asksAtLaunch(current, now)) {
                     finishLaunch()
@@ -77,10 +83,8 @@ class FocusController
                 }
                 val outcome = FocusPolicy.switchTo(current, mode, now, commitMinutes) ?: return false
                 store.setSession(outcome.session)
-                if (outcome.emergency) {
-                    val today = FocusPolicy.rollover(store.tally.first(), epochDay(now))
-                    store.setTally(FocusPolicy.addEmergencyExit(today))
-                }
+                if (outcome.emergency) store.setTally(FocusPolicy.addEmergencyExit(todayTally(now)))
+                limitNotice.value = null
                 finishLaunch()
                 true
             }
@@ -99,6 +103,50 @@ class FocusController
             }
         }
 
+        /** Today's count, rolled over to today. */
+        suspend fun today(now: Long = System.currentTimeMillis()): FocusDayTally = mutex.withLock { todayTally(now) }
+
+        /** Books [playedMs] of playing on [modeId] today and returns where that mode now stands. */
+        suspend fun addPlayed(
+            modeId: String,
+            playedMs: Long,
+            now: Long = System.currentTimeMillis(),
+        ): FocusDayTally =
+            mutex.withLock {
+                FocusPolicy.addPlayed(todayTally(now), modeId, playedMs).also { store.setTally(it) }
+            }
+
+        /**
+         * Counts a video started in [mode]. Returns false, counting nothing, when the mode's daily allowance is
+         * already spent: the caller stops the video and [reachLimit]s.
+         */
+        suspend fun startVideo(
+            mode: FocusMode,
+            now: Long = System.currentTimeMillis(),
+        ): Boolean =
+            mutex.withLock {
+                val today = todayTally(now)
+                if (!FocusPolicy.mayStartVideo(mode, today)) return false
+                store.setTally(FocusPolicy.addVideo(today, mode.id))
+                true
+            }
+
+        /** [mode] ran out for today: the picker comes back, saying why, so the viewer chooses what to do next. */
+        fun reachLimit(
+            mode: FocusMode,
+            state: LimitState,
+        ) {
+            limitNotice.value = FocusLimitNotice(mode.id, byVideos = state == LimitState.VideosReached)
+            pickerState.value = true
+        }
+
+        private suspend fun todayTally(now: Long): FocusDayTally {
+            val stored = store.tally.first()
+            val today = FocusPolicy.rollover(stored, epochDay(now))
+            if (today != stored) store.setTally(today)
+            return today
+        }
+
         private fun finishLaunch() {
             pickerState.value = false
         }
@@ -110,3 +158,9 @@ class FocusController
                 .toLocalDate()
                 .toEpochDay()
     }
+
+/** Which leisure mode ran out, and whether it was the video count rather than the time. */
+data class FocusLimitNotice(
+    val modeId: String,
+    val byVideos: Boolean,
+)

@@ -5119,4 +5119,13 @@
     <string name="focus_emergency_exit">Emergency exit</string>
     <string name="focus_emergency_wait">Unlocking in %1$s. Keep this sheet open.</string>
     <string name="focus_emergency_open">Unlocked. Pick a mode to leave %1$s.</string>
+    <string name="focus_limit_reached_time">You\'ve used today\'s time in %1$s. Pick another mode, or come back tomorrow.</string>
+    <string name="focus_limit_reached_videos">You\'ve watched today\'s videos in %1$s. Pick another mode, or come back tomorrow.</string>
+    <string name="focus_spent_today">Used up for today</string>
+    <string name="focus_today_title">Today</string>
+    <string name="focus_today_line">%1$s: %2$s, %3$s</string>
+    <plurals name="focus_today_exits">
+        <item quantity="one">%1$d emergency exit</item>
+        <item quantity="other">%1$d emergency exits</item>
+    </plurals>
 </resources>

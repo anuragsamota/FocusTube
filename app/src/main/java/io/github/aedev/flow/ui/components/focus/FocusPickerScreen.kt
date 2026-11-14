@@ -48,10 +48,11 @@ private val ContentMaxWidth = 480.dp
  */
 @Composable
 internal fun FocusPickerScreen(
-    modes: List<FocusMode>,
+    state: FocusUiState,
     onChoose: (modeId: String, commitMinutes: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val modes = state.modes
     val context = LocalContext.current
     BackHandler { (context as? Activity)?.moveTaskToBack(true) }
     var pendingId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -64,9 +65,10 @@ internal fun FocusPickerScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 if (pending == null) {
-                    ModeList(modes, onPick = { mode ->
-                        if (mode.isProductive) pendingId = mode.id else onChoose(mode.id, 0)
-                    })
+                    ModeList(
+                        state = state,
+                        onPick = { mode -> if (mode.isProductive) pendingId = mode.id else onChoose(mode.id, 0) },
+                    )
                 } else {
                     CommitmentChooser(
                         mode = pending,
@@ -81,21 +83,54 @@ internal fun FocusPickerScreen(
 
 @Composable
 private fun ModeList(
-    modes: List<FocusMode>,
+    state: FocusUiState,
     onPick: (FocusMode) -> Unit,
 ) {
+    val modes = state.modes
     val suggested =
-        remember(modes) {
+        remember(modes, state.today) {
             val now = LocalDateTime.now()
-            FocusPolicy.suggest(modes, now.dayOfWeek.value, now.hour * 60 + now.minute)
+            FocusPolicy.suggest(modes.filter(state::canEnter), now.dayOfWeek.value, now.hour * 60 + now.minute)
         }
+    state.limitReached?.let { notice ->
+        modes.firstOrNull { it.id == notice.modeId }?.let { spent -> LimitNotice(spent, notice.byVideos) }
+    }
     Text(stringResource(R.string.focus_picker_title), style = MaterialTheme.typography.headlineSmall)
     Text(
         stringResource(R.string.focus_picker_body),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    ModeRows(modes = modes, highlightId = suggested?.id, highlightText = stringResource(R.string.focus_picker_suggested), onPick = onPick)
+    ModeRows(
+        modes = modes,
+        highlightId = suggested?.id,
+        highlightText = stringResource(R.string.focus_picker_suggested),
+        onPick = onPick,
+        isEnabled = state::canEnter,
+    )
+}
+
+@Composable
+private fun LimitNotice(
+    mode: FocusMode,
+    byVideos: Boolean,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text =
+                stringResource(
+                    if (byVideos) R.string.focus_limit_reached_videos else R.string.focus_limit_reached_time,
+                    mode.displayName(),
+                ),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(16.dp),
+        )
+    }
 }
 
 /** The modes as one group of rows; [highlightId]'s row is selected and carries [highlightText]. */
@@ -105,17 +140,17 @@ internal fun ModeRows(
     highlightId: String?,
     highlightText: String?,
     onPick: (FocusMode) -> Unit,
-    enabled: Boolean = true,
+    isEnabled: (FocusMode) -> Boolean = { true },
 ) {
     FlowRowGroup {
         modes.forEachIndexed { index, mode ->
             FlowNavRow(
                 title = mode.displayName(),
-                supportingText = mode.summary(),
+                supportingText = if (isEnabled(mode)) mode.summary() else stringResource(R.string.focus_spent_today),
                 leadingIcon = mode.iconVector(),
                 trailingText = highlightText.takeIf { mode.id == highlightId },
                 selected = mode.id == highlightId,
-                enabled = enabled,
+                enabled = isEnabled(mode),
                 showChevron = mode.isProductive,
                 shape = flowRowGroupShape(index, modes.size),
                 onClick = { onPick(mode) },
