@@ -13,6 +13,8 @@ import androidx.paging.cachedIn
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.aedev.flow.data.community.PostCommentsLoader
+import io.github.aedev.flow.data.focus.FocusGate
+import io.github.aedev.flow.data.focus.FocusSearch
 import io.github.aedev.flow.data.local.PlayerPreferences
 import io.github.aedev.flow.data.local.PrivacyGate
 import io.github.aedev.flow.data.local.SearchFilter
@@ -98,7 +100,8 @@ class SearchViewModel
                             ),
                         pagingSourceFactory = {
                             SearchPagingSource(
-                                query = key.query,
+                                // A focus profile with subjects keeps the search on them.
+                                query = FocusSearch.steer(FocusGate.mode.value, key.query),
                                 filter = key.filter,
                                 shortsEnabled = shortsEnabled,
                                 onHeader = ::onHeader,

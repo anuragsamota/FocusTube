@@ -16,7 +16,7 @@ import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.focusTagStore by safePreferencesDataStore(name = "focus_tags", scope = StoreScope.PROFILE_PRIVATE)
+private val Context.focusTagStore by safePreferencesDataStore(name = "focus_tags", scope = StoreScope.DEVICE)
 
 /**
  * Tags videos for focus modes and remembers what each channel posts. The memory is engine state like FlowNeuro's: it

@@ -22,6 +22,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -31,19 +32,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.aedev.flow.R
 import io.github.aedev.flow.data.focus.FocusMode
 import io.github.aedev.flow.data.focus.FocusPolicy
-import io.github.aedev.flow.data.focus.FocusSession
 import io.github.aedev.flow.data.focus.SwitchDecision
+import io.github.aedev.flow.ui.components.profiles.switchRefusalText
 import io.github.aedev.flow.ui.components.shared.FlowSectionHeader
 import io.github.aedev.flow.ui.components.shared.quickactions.QuickActionsSheet
 
 private val TopBarIconSize = 24.dp
 private val SheetPadding = 20.dp
+private const val MILLIS_PER_MINUTE = 60_000L
 
-/** The current focus mode as a top bar action, opening the switcher. Hidden until a mode is chosen. */
+/** The running profile's focus as a top bar action, opening the switcher. */
 @Composable
 fun FocusTopBarAction(viewModel: FocusViewModel = hiltViewModel()) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    val current = state?.current ?: return
+    val collected by viewModel.state.collectAsStateWithLifecycle()
+    val state = collected ?: return
+    val current = state.current ?: return
     var open by rememberSaveable { mutableStateOf(false) }
     val description = stringResource(R.string.focus_action_description, current.displayName())
 
@@ -53,36 +56,39 @@ fun FocusTopBarAction(viewModel: FocusViewModel = hiltViewModel()) {
 
     if (open) {
         FocusSwitchSheet(
-            modes = state?.modes.orEmpty(),
-            session = state?.session,
+            state = state,
             onChoose = { mode, minutes -> viewModel.choose(mode.id, minutes) { switched -> if (switched) open = false } },
             onBeginExit = viewModel::beginExitHold,
             onCancelExit = viewModel::cancelExitHold,
-            onDismiss = { open = false },
+            onDismiss = {
+                open = false
+                viewModel.consumeRefused()
+            },
         )
     }
 }
 
 /**
- * Switching modes. While a productive mode's minimum time runs, the other modes are shown but can't be picked; the
- * emergency exit unlocks them after [FocusPolicy.EXIT_HOLD_MS] spent on this sheet, and closing the sheet starts that
- * wait over.
+ * Switching profiles for focus. While a locked profile's minimum time runs, the other profiles are shown but can't be
+ * picked; the emergency exit unlocks them after [FocusPolicy.EXIT_HOLD_MS] spent on this sheet, and closing the sheet
+ * starts that wait over. Picking another profile restarts the app into it.
  */
 @Composable
 internal fun FocusSwitchSheet(
-    modes: List<FocusMode>,
-    session: FocusSession?,
+    state: FocusUiState,
     onChoose: (FocusMode, Int) -> Unit,
     onBeginExit: () -> Unit,
     onCancelExit: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val modes = state.modes
+    val session = state.runningSession
     val now by rememberNow()
     val latestCancel by rememberUpdatedState(onCancelExit)
     DisposableEffect(Unit) { onDispose { latestCancel() } }
     var pendingId by rememberSaveable { mutableStateOf<String?>(null) }
     val pending = modes.firstOrNull { it.id == pendingId }
-    val current = session?.let { s -> modes.firstOrNull { it.id == s.modeId } }
+    val current = state.current
     val lock = FocusPolicy.canSwitch(session, now) as? SwitchDecision.Locked
     val exitRemaining = session?.let { FocusPolicy.exitHoldRemainingMs(it, now) }
     val mayLeave = FocusPolicy.mayLeave(session, now)
@@ -102,21 +108,64 @@ internal fun FocusSwitchSheet(
                 LockNotice(current, lock.remainingMs, exitRemaining, onBeginExit)
                 Spacer(Modifier.height(16.dp))
             }
+            state.refused?.let { refused ->
+                Text(
+                    stringResource(switchRefusalText(refused.reason)),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = SheetPadding, vertical = 8.dp),
+                )
+            }
             ModeRows(
                 modes = modes,
                 highlightId = current?.id,
                 highlightText = stringResource(R.string.focus_current),
-                enabled = mayLeave,
+                isEnabled = { mode -> mayLeave && state.canEnter(mode) },
                 onPick = { mode ->
                     when {
                         mode.id == current?.id -> onDismiss()
-                        mode.isProductive -> pendingId = mode.id
+                        mode.lock -> pendingId = mode.id
                         else -> onChoose(mode, 0)
                     }
                 },
             )
+            TodaySummary(state)
         }
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+/** Today's time and videos per profile, and any emergency exits: what the viewer actually did with the day. */
+@Composable
+private fun TodaySummary(state: FocusUiState) {
+    val today = state.today
+    val lines =
+        state.modes.mapNotNull { mode ->
+            val minutes = ((today.playedMs[mode.id] ?: 0L) / MILLIS_PER_MINUTE).toInt()
+            val videos = today.videos[mode.id] ?: 0
+            if (minutes == 0 && videos == 0) {
+                null
+            } else {
+                stringResource(
+                    R.string.focus_today_line,
+                    mode.displayName(),
+                    stringResource(R.string.focus_minutes, minutes),
+                    pluralStringResource(R.plurals.focus_videos, videos, videos),
+                )
+            }
+        }
+    if (lines.isEmpty() && today.emergencyExits == 0) return
+    Spacer(Modifier.height(16.dp))
+    FlowSectionHeader(text = stringResource(R.string.focus_today_title))
+    Column(Modifier.padding(horizontal = SheetPadding), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        lines.forEach { Text(it, style = MaterialTheme.typography.bodyMedium) }
+        if (today.emergencyExits > 0) {
+            Text(
+                pluralStringResource(R.plurals.focus_today_exits, today.emergencyExits, today.emergencyExits),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

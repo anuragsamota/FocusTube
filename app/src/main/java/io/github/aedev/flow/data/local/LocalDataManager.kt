@@ -7,7 +7,6 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.aedev.flow.R
-import io.github.aedev.flow.data.focus.FocusStore
 import io.github.aedev.flow.data.model.Channel
 import io.github.aedev.flow.data.model.Playlist
 import io.github.aedev.flow.data.model.Video
@@ -132,8 +131,7 @@ class LocalDataManager
                         MARQUEE_ENABLED.name,
                         CLASSIC_LOADING_INDICATOR.name,
                     ) +
-                    DailyLimitStore.SETTING_NAMES +
-                    FocusStore.SETTING_NAMES
+                    DailyLimitStore.SETTING_NAMES
 
             /** Keys in this store a backup leaves out, each with the reason. */
             internal val NOT_BACKED_UP: Map<String, String> =
@@ -142,8 +140,7 @@ class LocalDataManager
                     listOf(VIDEO_QUALITY_WIFI, VIDEO_QUALITY_CELLULAR, BACKGROUND_PLAY, TRENDING_REGION)
                         .associate { it.name to "legacy; the player settings own these names now" } +
                     DEVICE_KEY_NAMES.associateWith { "device state, kept in the device store" } +
-                    DailyLimitStore.TALLY_NAMES.associateWith { "today's watch time, not a setting" } +
-                    FocusStore.STATE_NAMES.associateWith { "the running focus session and today's count, not a setting" }
+                    DailyLimitStore.TALLY_NAMES.associateWith { "today's watch time, not a setting" }
         }
 
         enum class AutoBackupFrequency { NONE, DAILY, WEEKLY, MONTHLY }

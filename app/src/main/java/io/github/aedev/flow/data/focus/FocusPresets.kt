@@ -1,75 +1,64 @@
 package io.github.aedev.flow.data.focus
 
 /**
- * The modes every viewer starts with. They can be edited but not deleted, and keep their ids so a later version can
- * tell them apart from custom modes.
+ * The templates a new profile can start from. A profile keeps its template's id in [ProfileFocus.preset] for its icon
+ * and its suggested hours; everything else can be changed afterwards. Several profiles may share a template, such as
+ * one Study profile per subject.
  */
 object FocusPresets {
-    const val STUDY = "preset_study"
-    const val WORK = "preset_work"
-    const val LEARN = "preset_learn"
-    const val MUSIC = "preset_music"
-    const val EXPLORE = "preset_explore"
+    /** An ordinary profile, with no restrictions. */
+    const val NONE = ""
+    const val STUDY = FocusIcons.STUDY
+    const val WORK = FocusIcons.WORK
+    const val LEARN = FocusIcons.LEARN
+    const val MUSIC = FocusIcons.MUSIC
+    const val EXPLORE = FocusIcons.EXPLORE
 
     private const val NINE_AM = 9 * 60
+    private const val FOUR_PM = 16 * 60
     private const val SIX_PM = 18 * 60
+    private const val EIGHT_PM = 20 * 60
     private const val TEN_PM = 22 * 60
 
-    val all: List<FocusMode> =
+    /** The templates in the order the picker offers them. */
+    val templates: List<ProfileFocus> =
         listOf(
-            FocusMode(
-                id = STUDY,
-                name = "Study",
-                icon = FocusIcons.STUDY,
+            ProfileFocus(
+                preset = STUDY,
                 kind = FocusKind.PRODUCTIVE,
                 allowedTags = setOf(FocusTag.EDUCATION, FocusTag.SCIENCE, FocusTag.FOCUS_MUSIC),
-                schedule = listOf(FocusWindow(FocusWindow.WEEKDAYS, startMinute = 16 * 60, endMinute = 20 * 60)),
-                builtIn = true,
+                schedule = listOf(FocusWindow(FocusWindow.WEEKDAYS, startMinute = FOUR_PM, endMinute = EIGHT_PM)),
             ),
-            FocusMode(
-                id = WORK,
-                name = "Work",
-                icon = FocusIcons.WORK,
+            ProfileFocus(
+                preset = WORK,
                 kind = FocusKind.PRODUCTIVE,
                 allowedTags = setOf(FocusTag.TECHNOLOGY, FocusTag.HOWTO, FocusTag.FOCUS_MUSIC),
-                schedule = listOf(FocusWindow(FocusWindow.WEEKDAYS, startMinute = NINE_AM, endMinute = 16 * 60)),
-                builtIn = true,
+                schedule = listOf(FocusWindow(FocusWindow.WEEKDAYS, startMinute = NINE_AM, endMinute = FOUR_PM)),
             ),
-            FocusMode(
-                id = LEARN,
-                name = "Learn",
-                icon = FocusIcons.LEARN,
+            ProfileFocus(
+                preset = LEARN,
                 kind = FocusKind.PRODUCTIVE,
                 allowedTags = setOf(FocusTag.EDUCATION, FocusTag.SCIENCE, FocusTag.TECHNOLOGY, FocusTag.HOWTO),
                 schedule = listOf(FocusWindow(FocusWindow.WEEKEND, startMinute = NINE_AM, endMinute = SIX_PM)),
-                builtIn = true,
             ),
-            FocusMode(
-                id = MUSIC,
-                name = "Music",
-                icon = FocusIcons.MUSIC,
+            ProfileFocus(
+                preset = MUSIC,
                 kind = FocusKind.LEISURE,
                 allowedTags = setOf(FocusTag.MUSIC, FocusTag.FOCUS_MUSIC),
                 allowShorts = false,
-                builtIn = true,
             ),
-            FocusMode(
-                id = EXPLORE,
-                name = "Explore",
-                icon = FocusIcons.EXPLORE,
+            ProfileFocus(
+                preset = EXPLORE,
                 kind = FocusKind.LEISURE,
-                schedule = listOf(FocusWindow(FocusWindow.ALL_DAYS, startMinute = 20 * 60, endMinute = TEN_PM)),
+                schedule = listOf(FocusWindow(FocusWindow.ALL_DAYS, startMinute = EIGHT_PM, endMinute = TEN_PM)),
                 dailyMinutes = 60,
                 dailyVideos = 10,
-                builtIn = true,
             ),
         )
 
-    /** [stored] with any preset it lacks put back, in preset order first, so a deleted or new preset reappears. */
-    fun merge(stored: List<FocusMode>): List<FocusMode> {
-        val byId = stored.associateBy { it.id }
-        val presets = all.map { preset -> byId[preset.id]?.copy(builtIn = true) ?: preset }
-        val custom = stored.filter { mode -> all.none { it.id == mode.id } }.map { it.copy(builtIn = false) }
-        return presets + custom
-    }
+    /** The template [preset] names, or an unrestricted profile's rules for any other id. */
+    fun template(preset: String): ProfileFocus = templates.firstOrNull { it.preset == preset } ?: ProfileFocus()
+
+    /** Each template as the rules of a profile whose id and name are the template's own, for tests and previews. */
+    val all: List<FocusMode> = templates.map { FocusMode.of(id = it.preset, name = it.preset, focus = it) }
 }

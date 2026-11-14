@@ -3,6 +3,7 @@ package io.github.aedev.flow.data.profile
 import android.content.Context
 import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.github.aedev.flow.data.focus.ProfileFocus
 import io.github.aedev.flow.data.video.downloader.collection.DownloadedCollections
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -37,9 +38,10 @@ class ProfileRepository
             colorKey: String = "",
             avatar: ProfileAvatar = ProfileAvatar(),
             copy: Set<SlicePart> = emptySet(),
+            focus: ProfileFocus = ProfileFocus(),
         ): CreateResult {
             require(name.isNotBlank()) { "A new profile needs a name" }
-            val profile = registry.add(name.trim(), colorKey, avatar) ?: return CreateResult.LimitReached
+            val profile = registry.add(name.trim(), colorKey, avatar, focus) ?: return CreateResult.LimitReached
             if (copy.isEmpty()) return CreateResult.Created(profile)
             return slices.get().writeSeed(profile.id, copy).fold(
                 onSuccess = { CreateResult.Created(profile) },
@@ -63,6 +65,11 @@ class ProfileRepository
          * profile's are open in this process.
          */
         suspend fun setAskWhosWatching(ask: Boolean) = registry.setAskWhosWatching(ask)
+
+        suspend fun setFocus(
+            id: String,
+            focus: ProfileFocus,
+        ): Boolean = registry.setFocus(id, focus)
 
         suspend fun setSplashTone(
             id: String,

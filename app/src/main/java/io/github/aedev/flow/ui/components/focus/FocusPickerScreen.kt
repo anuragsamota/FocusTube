@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import io.github.aedev.flow.R
 import io.github.aedev.flow.data.focus.FocusMode
 import io.github.aedev.flow.data.focus.FocusPolicy
+import io.github.aedev.flow.data.focus.FocusPresets
+import io.github.aedev.flow.ui.components.profiles.switchRefusalText
 import io.github.aedev.flow.ui.components.shared.FlowNavRow
 import io.github.aedev.flow.ui.components.shared.FlowRowGroup
 import io.github.aedev.flow.ui.components.shared.flowRowGroupShape
@@ -43,19 +45,25 @@ import java.time.LocalDateTime
 private val ContentMaxWidth = 480.dp
 
 /**
- * What Focus Tube asks before it shows anything: what the viewer is here for. The mode that fits the time of day is
- * marked; a productive mode then asks how long to stay. Back leaves the app rather than reaching the feed underneath.
+ * What Focus Tube asks before it shows anything: which profile the viewer is here for. The one that fits the time of
+ * day is marked; a profile with a lock then asks how long to stay, and one that isn't running restarts the app into
+ * it. New focus profiles are made from a template right here. Back leaves the app rather than reaching the feed.
  */
 @Composable
 internal fun FocusPickerScreen(
-    modes: List<FocusMode>,
+    state: FocusUiState,
     onChoose: (modeId: String, commitMinutes: Int) -> Unit,
+    onCreate: (preset: String, name: String, onCreated: (String?) -> Unit) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val modes = state.modes
     val context = LocalContext.current
     BackHandler { (context as? Activity)?.moveTaskToBack(true) }
     var pendingId by rememberSaveable { mutableStateOf<String?>(null) }
+    var createFailed by rememberSaveable { mutableStateOf(false) }
     val pending = modes.firstOrNull { it.id == pendingId }
+    val pick: (FocusMode) -> Unit = { mode -> if (mode.lock) pendingId = mode.id else onChoose(mode.id, 0) }
+    val newName = presetNames()
 
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Box(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), contentAlignment = Alignment.Center) {
@@ -64,9 +72,20 @@ internal fun FocusPickerScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 if (pending == null) {
-                    ModeList(modes, onPick = { mode ->
-                        if (mode.isProductive) pendingId = mode.id else onChoose(mode.id, 0)
-                    })
+                    ModeList(state = state, onPick = pick)
+                    NewProfiles(
+                        failed = createFailed,
+                        onCreate = { preset ->
+                            createFailed = false
+                            onCreate(preset, newName.getValue(preset)) { id ->
+                                when {
+                                    id == null -> createFailed = true
+                                    FocusPresets.template(preset).lock -> pendingId = id
+                                    else -> onChoose(id, 0)
+                                }
+                            }
+                        },
+                    )
                 } else {
                     CommitmentChooser(
                         mode = pending,
@@ -81,42 +100,114 @@ internal fun FocusPickerScreen(
 
 @Composable
 private fun ModeList(
-    modes: List<FocusMode>,
+    state: FocusUiState,
     onPick: (FocusMode) -> Unit,
 ) {
+    val modes = state.modes
     val suggested =
-        remember(modes) {
+        remember(modes, state.today) {
             val now = LocalDateTime.now()
-            FocusPolicy.suggest(modes, now.dayOfWeek.value, now.hour * 60 + now.minute)
+            FocusPolicy.suggest(modes.filter(state::canEnter), now.dayOfWeek.value, now.hour * 60 + now.minute)
         }
+    state.limitReached?.let { notice ->
+        modes.firstOrNull { it.id == notice.modeId }?.let { spent -> LimitNotice(spent, notice.byVideos) }
+    }
+    state.refused?.let { refused -> Notice(stringResource(switchRefusalText(refused.reason))) }
     Text(stringResource(R.string.focus_picker_title), style = MaterialTheme.typography.headlineSmall)
     Text(
         stringResource(R.string.focus_picker_body),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    ModeRows(modes = modes, highlightId = suggested?.id, highlightText = stringResource(R.string.focus_picker_suggested), onPick = onPick)
+    ModeRows(
+        modes = modes,
+        highlightId = suggested?.id,
+        highlightText = stringResource(R.string.focus_picker_suggested),
+        onPick = onPick,
+        isEnabled = state::canEnter,
+    )
 }
 
-/** The modes as one group of rows; [highlightId]'s row is selected and carries [highlightText]. */
+@Composable
+private fun LimitNotice(
+    mode: FocusMode,
+    byVideos: Boolean,
+) {
+    Notice(
+        stringResource(
+            if (byVideos) R.string.focus_limit_reached_videos else R.string.focus_limit_reached_time,
+            mode.displayName(),
+        ),
+    )
+}
+
+/** The templates a new profile can start from, each one tap away. */
+@Composable
+private fun NewProfiles(
+    failed: Boolean,
+    onCreate: (preset: String) -> Unit,
+) {
+    Text(stringResource(R.string.focus_new_title), style = MaterialTheme.typography.titleMedium)
+    Text(
+        stringResource(R.string.focus_new_body),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    if (failed) Notice(stringResource(R.string.focus_new_failed))
+    val templates = FocusPresets.templates
+    FlowRowGroup {
+        templates.forEachIndexed { index, template ->
+            FlowNavRow(
+                title = presetName(template.preset),
+                supportingText = FocusMode.of(id = template.preset, name = "", focus = template).summary(),
+                leadingIcon = presetIcon(template.preset),
+                showChevron = false,
+                shape = flowRowGroupShape(index, templates.size),
+                onClick = { onCreate(template.preset) },
+            )
+        }
+    }
+}
+
+/** Every template's starting name, read while composing so a callback can use it. */
+@Composable
+private fun presetNames(): Map<String, String> = FocusPresets.templates.associate { it.preset to presetName(it.preset) }
+
+@Composable
+private fun Notice(text: String) {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(16.dp),
+        )
+    }
+}
+
+/** The profiles as one group of rows; [highlightId]'s row is selected and carries [highlightText]. */
 @Composable
 internal fun ModeRows(
     modes: List<FocusMode>,
     highlightId: String?,
     highlightText: String?,
     onPick: (FocusMode) -> Unit,
-    enabled: Boolean = true,
+    isEnabled: (FocusMode) -> Boolean = { true },
 ) {
     FlowRowGroup {
         modes.forEachIndexed { index, mode ->
             FlowNavRow(
                 title = mode.displayName(),
-                supportingText = mode.summary(),
+                supportingText = if (isEnabled(mode)) mode.summary() else stringResource(R.string.focus_spent_today),
                 leadingIcon = mode.iconVector(),
                 trailingText = highlightText.takeIf { mode.id == highlightId },
                 selected = mode.id == highlightId,
-                enabled = enabled,
-                showChevron = mode.isProductive,
+                enabled = isEnabled(mode),
+                showChevron = mode.lock,
                 shape = flowRowGroupShape(index, modes.size),
                 onClick = { onPick(mode) },
             )

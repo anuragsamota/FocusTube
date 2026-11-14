@@ -32,6 +32,7 @@ import io.github.aedev.flow.notification.AutoBackupWorker
 import io.github.aedev.flow.notification.BackgroundCheckScheduler
 import io.github.aedev.flow.notification.BreakReminderTimer
 import io.github.aedev.flow.notification.DailyLimitGuard
+import io.github.aedev.flow.notification.FocusUsageGuard
 import io.github.aedev.flow.notification.NotificationHelper
 import io.github.aedev.flow.player.PlaybackShutdown
 import io.github.aedev.flow.player.SleepTimerManager
@@ -111,6 +112,9 @@ class FlowApplication :
     lateinit var dailyLimitGuard: DailyLimitGuard
 
     @Inject
+    lateinit var focusUsageGuard: FocusUsageGuard
+
+    @Inject
     lateinit var appLock: AppLock
 
     @Inject
@@ -146,6 +150,7 @@ class FlowApplication :
         linkedForeground.install()
         breakReminderTimer.install()
         dailyLimitGuard.install()
+        focusUsageGuard.install()
         appLock.install()
         YouTube.cacheDirectory = cacheDir.resolve("innertube_http_cache")
 

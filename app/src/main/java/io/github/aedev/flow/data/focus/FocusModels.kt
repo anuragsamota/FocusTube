@@ -62,13 +62,34 @@ data class FocusWindow(
 }
 
 /**
- * One focus mode. Content is shown in it when it carries one of [allowedTags] and none of [blockedTags]; for a
- * productive mode the viewer's [topics] (for example "linear algebra") then lift matching videos to the top.
+ * The focus rules a profile carries, kept in the profile registry so every profile's rules can be read from any
+ * process: the launch picker lists them all, and the profile switcher enforces the lock of the one that is running.
  *
- * [dailyMinutes] and [dailyVideos] limit a leisure mode per local day; null means no limit. They are ignored for a
- * productive mode, whose time is open-ended once its minimum has passed.
+ * [preset] is the template the profile was made from ([FocusPresets]); [FocusPresets.NONE] is an ordinary profile with
+ * no restrictions, like Default. Content shows when it carries one of [allowedTags] or matches one of [subjects], and
+ * none of [blockedTags]. With neither tags nor subjects set, everything that isn't blocked shows.
+ *
+ * [lock] asks for a minimum time at launch and holds the viewer in the profile for it. [dailyMinutes] and
+ * [dailyVideos] limit a profile without a lock per local day; null means no limit.
  */
 @Serializable
+data class ProfileFocus(
+    val preset: String = FocusPresets.NONE,
+    val kind: FocusKind = FocusKind.LEISURE,
+    val allowedTags: Set<FocusTag> = emptySet(),
+    val blockedTags: Set<FocusTag> = emptySet(),
+    val subjects: List<String> = emptyList(),
+    val lock: Boolean = kind == FocusKind.PRODUCTIVE,
+    val allowShorts: Boolean = kind == FocusKind.LEISURE,
+    val schedule: List<FocusWindow> = emptyList(),
+    val dailyMinutes: Int? = null,
+    val dailyVideos: Int? = null,
+)
+
+/**
+ * A profile's focus rules together with the profile they belong to, as the picker, the feeds and the usage guard use
+ * them. [id] is the profile id, so the day's tally and the session are kept per profile.
+ */
 data class FocusMode(
     val id: String,
     val name: String,
@@ -81,12 +102,39 @@ data class FocusMode(
     val schedule: List<FocusWindow> = emptyList(),
     val dailyMinutes: Int? = null,
     val dailyVideos: Int? = null,
-    val builtIn: Boolean = false,
+    val lock: Boolean = kind == FocusKind.PRODUCTIVE,
 ) {
     val isProductive: Boolean get() = kind == FocusKind.PRODUCTIVE
 
-    /** An empty [allowedTags] allows every tag that isn't blocked, which is how Explore works. */
-    val allowsEverything: Boolean get() = allowedTags.isEmpty()
+    /** With no tags and no subjects every tag that isn't blocked shows, which is how an ordinary profile works. */
+    val allowsEverything: Boolean get() = allowedTags.isEmpty() && topics.isEmpty()
+
+    /** Whether this profile restricts anything at all; an unrestricted one is a plain Flow profile. */
+    val restricts: Boolean
+        get() = !allowsEverything || blockedTags.isNotEmpty() || !allowShorts || lock || dailyMinutes != null || dailyVideos != null
+
+    companion object {
+        /** [focus] as the rules of the profile [id] named [name]. */
+        fun of(
+            id: String,
+            name: String,
+            focus: ProfileFocus,
+        ): FocusMode =
+            FocusMode(
+                id = id,
+                name = name,
+                icon = focus.preset.ifBlank { FocusIcons.DEFAULT },
+                kind = focus.kind,
+                allowedTags = focus.allowedTags,
+                blockedTags = focus.blockedTags,
+                topics = focus.subjects.map(String::trim).filter(String::isNotEmpty),
+                allowShorts = focus.allowShorts,
+                schedule = focus.schedule,
+                dailyMinutes = focus.dailyMinutes?.takeIf { it > 0 },
+                dailyVideos = focus.dailyVideos?.takeIf { it > 0 },
+                lock = focus.lock,
+            )
+    }
 }
 
 /** The icon keys a mode can use; the UI maps each to a Material symbol. */
@@ -100,7 +148,7 @@ object FocusIcons {
 }
 
 /**
- * The mode the viewer is in now. [committedUntil] is when the minimum time they chose runs out; before then a
+ * The profile the viewer chose to be in ([modeId] is its profile id). [committedUntil] is when the minimum time they chose runs out; before then a
  * productive mode can't be left except through the emergency exit, which starts at [exitHoldStartedAt].
  */
 @Serializable

@@ -11,5 +11,6 @@ fun switchRefusalText(reason: SwitchRefusal?): Int =
         SwitchRefusal.CAR_CONNECTED -> R.string.profiles_switch_refused_car
         SwitchRefusal.SYNC_RUNNING -> R.string.profiles_switch_refused_sync
         SwitchRefusal.BACKUP_RUNNING -> R.string.profiles_switch_refused_backup
+        SwitchRefusal.FOCUS_LOCKED -> R.string.profiles_switch_refused_focus
         SwitchRefusal.UNKNOWN_PROFILE, SwitchRefusal.ALREADY_ACTIVE, null -> R.string.profiles_switch_failed
     }

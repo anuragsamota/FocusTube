@@ -8,6 +8,7 @@ import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.core.Serializer
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import io.github.aedev.flow.R
+import io.github.aedev.flow.data.focus.ProfileFocus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -32,6 +33,8 @@ data class Profile(
     val createdAt: Long = 0L,
     /** The tone this profile's theme last gave the splash, so a switch can open the next launch in it. */
     val splashTone: String = "",
+    /** What this profile is for and what it lets through; an older registry reads as an unrestricted profile. */
+    val focus: ProfileFocus = ProfileFocus(),
 )
 
 /** The name to show: Default's is blank until it is renamed, and shows the localized "Default". */
@@ -111,12 +114,13 @@ class ProfileRegistry internal constructor(
         name: String,
         colorKey: String,
         avatar: ProfileAvatar,
+        focus: ProfileFocus = ProfileFocus(),
     ): Profile? {
         var added: Profile? = null
         store.updateData { stored ->
             val complete = stored.completed(newId, now)
             if (complete.profiles.size >= MAX_PROFILES) return@updateData complete
-            val profile = Profile(id = newId(), name = name, colorKey = colorKey, avatar = avatar, createdAt = now())
+            val profile = Profile(id = newId(), name = name, colorKey = colorKey, avatar = avatar, createdAt = now(), focus = focus)
             added = profile
             complete.copy(profiles = complete.profiles + profile)
         }
@@ -167,6 +171,21 @@ class ProfileRegistry internal constructor(
             if (complete.profiles.none { it.id == id }) return@updateData complete
             changed = true
             complete.copy(profiles = complete.profiles.map { if (it.id == id) it.copy(colorKey = colorKey, avatar = avatar) else it })
+        }
+        return changed
+    }
+
+    /** Replaces a profile's focus rules. */
+    suspend fun setFocus(
+        id: String,
+        focus: ProfileFocus,
+    ): Boolean {
+        var changed = false
+        store.updateData { stored ->
+            val complete = stored.completed(newId, now)
+            if (complete.profiles.none { it.id == id }) return@updateData complete
+            changed = true
+            complete.copy(profiles = complete.profiles.map { if (it.id == id) it.copy(focus = focus) else it })
         }
         return changed
     }
@@ -226,7 +245,7 @@ class ProfileRegistry internal constructor(
 
     companion object {
         const val FILE_NAME = "profiles_registry.json"
-        const val MAX_PROFILES = 5
+        const val MAX_PROFILES = 12
         private const val TAG = "ProfileRegistry"
 
         /**
