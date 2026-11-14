@@ -40,6 +40,8 @@ import io.github.aedev.flow.player.GlobalPlayerState
 import io.github.aedev.flow.ui.FlowApp
 import io.github.aedev.flow.ui.IncomingLinks
 import io.github.aedev.flow.ui.components.applock.AppLockScreen
+import io.github.aedev.flow.ui.components.focus.FocusPickerScreen
+import io.github.aedev.flow.ui.components.focus.FocusViewModel
 import io.github.aedev.flow.ui.components.profiles.ProfileSwitchingOverlay
 import io.github.aedev.flow.ui.components.shared.AppHaptics
 import io.github.aedev.flow.ui.components.shared.ProvideChannelGroupLabels
@@ -146,7 +148,13 @@ internal fun FlowRoot(
                         ) {
                             // PiP shows only what is already playing, so the lock waits for the full app.
                             val showLock = locked && !isInPip
-                            Box(Modifier.fillMaxSize().hiddenBehindLock(showLock)) {
+                            // Focus Tube asks what the viewer is here for before any feed shows, on phones.
+                            val focus = hiltViewModel<FocusViewModel>()
+                            val needsFocusPick by focus.needsPicker.collectAsState()
+                            val focusState by focus.state.collectAsState()
+                            val showFocusPicker =
+                                appUiRoot == AppUiRoot.MOBILE && !isInPip && needsFocusPick == true && focusState != null
+                            Box(Modifier.fillMaxSize().hiddenBehindLock(showLock || showFocusPicker)) {
                                 if (appUiRoot == AppUiRoot.MOBILE) PreAndroid9FocusHolder()
                                 // 1. MAIN APP (Home/NavHost)
                                 // This loads *behind* the splash screen immediately.
@@ -203,6 +211,12 @@ internal fun FlowRoot(
                                             )
                                         }
                                     },
+                                )
+                            }
+                            if (showFocusPicker) {
+                                FocusPickerScreen(
+                                    modes = focusState?.modes.orEmpty(),
+                                    onChoose = { modeId, minutes -> focus.choose(modeId, minutes) },
                                 )
                             }
                             if (showLock) AppLockScreen(appLock)

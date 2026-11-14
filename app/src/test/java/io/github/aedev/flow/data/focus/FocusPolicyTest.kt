@@ -120,4 +120,31 @@ class FocusPolicyTest {
         val capped = study.copy(dailyMinutes = 1, dailyVideos = 1)
         assertThat(FocusPolicy.mayStartVideo(capped, FocusPolicy.addPlayed(busy, study.id, 600 * minute))).isTrue()
     }
+
+    @Test
+    fun `launch asks again unless a locked session is still running`() {
+        val locked = FocusPolicy.start(study, now, commitMinutes = 30)
+
+        assertThat(FocusPolicy.asksAtLaunch(null, now)).isTrue()
+        assertThat(FocusPolicy.asksAtLaunch(locked, now + 10 * minute)).isFalse()
+        assertThat(FocusPolicy.asksAtLaunch(locked, now + 30 * minute)).isTrue()
+        assertThat(FocusPolicy.asksAtLaunch(FocusPolicy.start(explore, now), now)).isTrue()
+    }
+
+    @Test
+    fun `switching is refused while locked and counted as an emergency once the exit opens`() {
+        val locked = FocusPolicy.start(study, now, commitMinutes = 30)
+
+        assertThat(FocusPolicy.switchTo(locked, explore, now + minute)).isNull()
+
+        val held = FocusPolicy.beginExitHold(locked, now + minute)
+        val out = FocusPolicy.switchTo(held, explore, now + 2 * minute)
+        assertThat(out?.emergency).isTrue()
+        assertThat(out?.session?.modeId).isEqualTo(explore.id)
+
+        val later = FocusPolicy.switchTo(locked, music, now + 31 * minute)
+        assertThat(later?.emergency).isFalse()
+        assertThat(FocusPolicy.switchTo(null, study, now, commitMinutes = 15)?.session?.committedUntil)
+            .isEqualTo(now + 15 * minute)
+    }
 }
