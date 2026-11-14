@@ -1,10 +1,15 @@
 package io.github.aedev.flow.data.focus
 
+import io.github.aedev.flow.di.ApplicationScope
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Instant
@@ -22,8 +27,11 @@ class FocusController
     @Inject
     constructor(
         private val store: FocusStore,
+        tagging: FocusTagging,
+        @ApplicationScope scope: CoroutineScope,
     ) {
         private val mutex = Mutex()
+
         private val pickerState = MutableStateFlow<Boolean?>(null)
 
         val modes: Flow<List<FocusMode>> = store.modes
@@ -32,6 +40,16 @@ class FocusController
 
         /** Null until the stored session has been read, then whether the picker still has to ask this launch. */
         val needsPicker: StateFlow<Boolean?> = pickerState.asStateFlow()
+
+        init {
+            // Every feed filters by the mode in force, so it follows the stored session from the first launch on.
+            scope.launch {
+                combine(store.modes, store.session) { modes, session -> session?.let { s -> modes.firstOrNull { it.id == s.modeId } } }
+                    .distinctUntilChanged()
+                    .collect(FocusGate::setMode)
+            }
+            scope.launch { tagging.warmUp() }
+        }
 
         /** Reads the stored session once per process and decides whether this launch asks. */
         suspend fun settleLaunch(now: Long = System.currentTimeMillis()) {

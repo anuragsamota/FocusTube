@@ -23,11 +23,15 @@ class FeedExclusions(
     val suppressedChannelIds: Set<String> = emptySet(),
     private val blockedText: (title: String, channelName: String) -> Boolean = { _, _ -> false },
     val ai: AiListMatcher = AiListMatcher.NONE,
+    private val focus: ((Video) -> Boolean)? = null,
 ) {
     val isEmpty: Boolean
-        get() = suppressedVideoIds.isEmpty() && blockedChannelIds.isEmpty() && suppressedChannelIds.isEmpty() && !ai.isActive
+        get() =
+            suppressedVideoIds.isEmpty() && blockedChannelIds.isEmpty() && suppressedChannelIds.isEmpty() && !ai.isActive &&
+                focus == null
 
-    fun hides(video: Video): Boolean = video.id in suppressedVideoIds || hidesChannel(video.channelId)
+    /** What the viewer hid, and what the current focus mode keeps out: it applies to Subscriptions and search too. */
+    fun hides(video: Video): Boolean = video.id in suppressedVideoIds || hidesChannel(video.channelId) || focus?.invoke(video) == true
 
     fun hidesChannel(channelId: String): Boolean = channelId.isNotBlank() && channelId in blockedChannelIds
 
@@ -44,7 +48,7 @@ class FeedExclusions(
         if (channelIds.isEmpty()) {
             this
         } else {
-            FeedExclusions(suppressedVideoIds, blockedChannelIds + channelIds, suppressedChannelIds, blockedText, ai)
+            FeedExclusions(suppressedVideoIds, blockedChannelIds + channelIds, suppressedChannelIds, blockedText, ai, focus)
         }
 
     companion object {

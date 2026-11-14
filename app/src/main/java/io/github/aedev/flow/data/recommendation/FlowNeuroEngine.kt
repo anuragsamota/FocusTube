@@ -19,6 +19,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.util.Log
 import io.github.aedev.flow.data.contentfilter.aislist.AiListMatcher
+import io.github.aedev.flow.data.focus.FocusGate
 import io.github.aedev.flow.data.local.PlayerPreferences
 import io.github.aedev.flow.data.model.Video
 import io.github.aedev.flow.utils.traced
@@ -1912,6 +1913,10 @@ class FlowNeuroEngine internal constructor(
                     NeuroScoring.isBlockedByText(title, channelName, matchers, tokenizer::keyOf)
             },
             ai = aiListMatcher(),
+            focus =
+                FocusGate.mode.value
+                    ?.takeIf(FocusGate::filters)
+                    ?.let { { video: Video -> FocusGate.blocks(video) } },
         )
     }
 
