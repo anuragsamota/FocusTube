@@ -66,6 +66,7 @@ class BackupRulesTest {
             "sync_brain_crdt",
             "sync_music_brain_crdt",
             "scrobbling",
+            "focus_tags",
             "youtube_identity",
             "flow_prefs",
             "flow_crash_prefs",

@@ -11,6 +11,7 @@ import io.github.aedev.flow.R
 import io.github.aedev.flow.data.engagement.FeedInvalidationBus
 import io.github.aedev.flow.data.feed.FeedPrefetchQueue
 import io.github.aedev.flow.data.feed.FeedPrefetchRequest
+import io.github.aedev.flow.data.focus.FocusTagging
 import io.github.aedev.flow.data.local.CachedHomeVideo
 import io.github.aedev.flow.data.local.HomeFeedCacheFilters
 import io.github.aedev.flow.data.local.HomeFeedCacheRepository
@@ -103,6 +104,7 @@ class HomeViewModel
         private val chipFeeds: HomeChipFeeds,
         private val snapshotRecorder: HomeSnapshotRecorder,
         private val neighbourChannels: NeighbourChannelsRepository,
+        private val focusTagging: FocusTagging,
         savedStateHandle: SavedStateHandle,
         @ApplicationContext private val appContext: Context,
     ) : ViewModel() {
@@ -1626,6 +1628,8 @@ class HomeViewModel
                     if (uploads.isEmpty()) return@launch
                     // Passive channel profiling: upload titles teach the engine what each channel is about.
                     runCatching { FlowNeuroEngine.onChannelUploadsObserved(uploads) }
+                    // The same uploads teach focus modes what each channel posts.
+                    runCatching { focusTagging.observe(uploads) }
                     subscriptionFeedRepository.mergeChannelTabUploads(uploads)
                     mergeLateSubscriptions(uploads, userSubs)
                 }
